@@ -292,8 +292,8 @@
     CGContextRef context = UIGraphicsGetCurrentContext();
     
     // flip source image to match destination coordinate system
-    CGContextScaleCTM(context, 1.0, -1.0);
-    CGContextTranslateCTM(context, 0, -destRectForSourceImage.size.height);
+    //CGContextScaleCTM(context, -1.0, -1.0);
+    //CGContextTranslateCTM(context, 0, -destRectForSourceImage.size.height);
     CGContextDrawImage(context, destRectForSourceImage, sourceCGImage);
     
     // Clean up and get the new image.
@@ -305,11 +305,25 @@
 
 - (UIImage *)screenshot
 {
-    UIGraphicsBeginImageContextWithOptions(self.view.bounds.size, NO, 0.0);
-    [self.view drawViewHierarchyInRect:self.view.bounds afterScreenUpdates:NO];
-    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    //UIGraphicsBeginImageContextWithOptions(self.view.bounds.size, NO, 0.0);
+    //[self.view drawViewHierarchyInRect:self.view.bounds afterScreenUpdates:NO];
+    //UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    //UIGraphicsEndImageContext();
+    // create graphics context with screen size
+    CGRect screenRect = [[UIScreen mainScreen] bounds];
+    UIGraphicsBeginImageContext(screenRect.size);
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+
+    [[UIColor blackColor] set];
+    CGContextFillRect(ctx, screenRect);
+
+    // grab reference to our window
+    UIWindow *window = [UIApplication sharedApplication].keyWindow;
+    // transfer content into our context
+    [window.layer renderInContext:ctx];
+    UIImage *screengrab = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
-    return image;
+    return screengrab;
 }
 
 - (void) consumeFrame:(CGImageRef)frame {
