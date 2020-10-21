@@ -147,7 +147,7 @@ public class OTSessionManager extends ReactContextBaseJavaModule
         Publisher mPublisher = null;
         if (videoSource.equals("screen")) {
             View view = getCurrentActivity().getWindow().getDecorView().getRootView();
-            OTScreenCapturer capturer = new OTScreenCapturer(getCurrentActivity());
+            OTScreenCapturer capturer = new OTScreenCapturer(view);
             mPublisher = new Publisher.Builder(this.getReactApplicationContext())
                     .audioTrack(audioTrack)
                     .videoTrack(videoTrack)
