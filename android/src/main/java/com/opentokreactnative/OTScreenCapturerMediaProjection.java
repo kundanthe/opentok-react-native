@@ -6,7 +6,7 @@ import android.graphics.Canvas;
 import android.os.Handler;
 import com.opentok.android.BaseVideoCapturer;
 
-public class OTScreenCapturer extends BaseVideoCapturer {
+public class OTScreenCapturerMediaProjection extends BaseVideoCapturer {
 
     private boolean capturing = false;
     private Activity currentActivity;
@@ -29,8 +29,8 @@ public class OTScreenCapturer extends BaseVideoCapturer {
                         ScreenCaptureImageActivity.latestBitmap.getWidth() != width ||
                         ScreenCaptureImageActivity.latestBitmap.getHeight() != height) {
 
-                    OTScreenCapturer.this.width = ScreenCaptureImageActivity.latestBitmap.getWidth();
-                    OTScreenCapturer.this.height = ScreenCaptureImageActivity.latestBitmap.getHeight();
+                    OTScreenCapturerMediaProjection.this.width = ScreenCaptureImageActivity.latestBitmap.getWidth();
+                    OTScreenCapturerMediaProjection.this.height = ScreenCaptureImageActivity.latestBitmap.getHeight();
 
                     //canvas = new Canvas(ScreenCaptureImageActivity.latestBitmap);
                     frame = new int[width * height];
@@ -42,7 +42,7 @@ public class OTScreenCapturer extends BaseVideoCapturer {
         }
     };
 
-    public OTScreenCapturer(Activity currentActivity) {
+    public OTScreenCapturerMediaProjection(Activity currentActivity) {
         this.currentActivity = currentActivity;
     }
 
