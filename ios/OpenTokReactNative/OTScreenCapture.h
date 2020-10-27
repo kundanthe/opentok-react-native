@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 #import <OpenTok/OpenTok.h>
+#include <ReplayKit/ReplayKit.h>
 
 @protocol OTVideoCapture;
 
@@ -24,7 +25,9 @@
 @interface OTScreenCapture : NSObject <OTVideoCapture>
 
 @property(readonly) UIView* view;
-
+@property RPScreenRecorder* recorder;
+@property UIImage* latestImage;
+@property double lastCaptureMillis;
 /**
  * Initializes a video capturer that will grab rendered stills of the view.
  */

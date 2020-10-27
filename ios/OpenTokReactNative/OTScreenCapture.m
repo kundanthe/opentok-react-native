@@ -7,8 +7,10 @@
 
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <ReplayKit/ReplayKit.h>
 #import "OTScreenCapture.h"
 
+ 
 @implementation OTScreenCapture {
     CMTime _minFrameDuration;
     dispatch_queue_t _queue;
@@ -18,10 +20,10 @@
     BOOL _capturing;
     OTVideoFrame* _videoFrame;
     UIView* _view;
-    
 }
 
 @synthesize videoCaptureConsumer;
+@synthesize recorder;
 
 #pragma mark - Class Lifecycle.
 
@@ -32,7 +34,7 @@
         _view = view;
         // Recommend sending 5 frames per second: Allows for higher image
         // quality per frame
-        _minFrameDuration = CMTimeMake(1, 5);
+        _minFrameDuration = CMTimeMake(1, 10);
         _queue = dispatch_queue_create("SCREEN_CAPTURE", NULL);
         
         OTVideoFormat *format = [[OTVideoFormat alloc] init];
@@ -109,9 +111,11 @@
     
     dispatch_source_set_event_handler(_timer, ^{
         @autoreleasepool {
-            __block UIImage* screen = [_self screenshot];
-            CGImageRef paddedScreen = [self resizeAndPadImage:screen];
-            [_self consumeFrame:paddedScreen];
+            //__block UIImage* screen = [_self latestImage];
+            if ([_self latestImage] != nil) {
+                CGImageRef paddedScreen = [self resizeAndPadImage:self.latestImage];
+                [_self consumeFrame:paddedScreen];
+            }
         }
     });
 }
@@ -127,7 +131,7 @@
     if (_timer) {
         dispatch_resume(_timer);
     }
-    
+    [self startRecording];
     return 0;
 }
 
@@ -135,11 +139,12 @@
 {
     _capturing = NO;
     
-    dispatch_sync(_queue, ^{
+    /*dispatch_sync(_queue, ^{
         if (self->_timer) {
             dispatch_source_cancel(self->_timer);
         }
-    });
+    });*/
+    [self stopRecording];
 
     return 0;
 }
@@ -292,8 +297,8 @@
     CGContextRef context = UIGraphicsGetCurrentContext();
     
     // flip source image to match destination coordinate system
-    //CGContextScaleCTM(context, -1.0, -1.0);
-    //CGContextTranslateCTM(context, 0, -destRectForSourceImage.size.height);
+    CGContextScaleCTM(context, 1.0, -1.0);
+    CGContextTranslateCTM(context, 0, -destRectForSourceImage.size.height);
     CGContextDrawImage(context, destRectForSourceImage, sourceCGImage);
     
     // Clean up and get the new image.
@@ -303,31 +308,8 @@
     return [newImage CGImage];
 }
 
-- (UIImage *)screenshot
-{
-    //UIGraphicsBeginImageContextWithOptions(self.view.bounds.size, NO, 0.0);
-    //[self.view drawViewHierarchyInRect:self.view.bounds afterScreenUpdates:NO];
-    //UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
-    //UIGraphicsEndImageContext();
-    // create graphics context with screen size
-    CGRect screenRect = [[UIScreen mainScreen] bounds];
-    UIGraphicsBeginImageContext(screenRect.size);
-    CGContextRef ctx = UIGraphicsGetCurrentContext();
-
-    [[UIColor blackColor] set];
-    CGContextFillRect(ctx, screenRect);
-
-    // grab reference to our window
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    // transfer content into our context
-    [window.layer renderInContext:ctx];
-    UIImage *screengrab = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    return screengrab;
-}
-
 - (void) consumeFrame:(CGImageRef)frame {
-    
+     
     [self checkImageSize:frame];
 
     static mach_timebase_info_data_t time_info;
@@ -363,5 +345,51 @@
     CVPixelBufferUnlockBaseAddress(ref, 0);
 }
 
+
+- (void)startRecording {
+    // Sets up ReplayKit itself.
+    self.recorder = [RPScreenRecorder sharedRecorder];
+    
+    // Starts ReplayKit's recording session.
+    // Sample buffers will be sent to `captureSampleBuffer` method.
+    //[self.recorder startCaptureWithHandler:bufferHandler completionHandler:errorHandler];
+    
+    if (@available(iOS 11.0, *)) {
+        [self.recorder startCaptureWithHandler:^(CMSampleBufferRef sampleBuffer, RPSampleBufferType bufferType, NSError* error) {
+            NSLog(@"Capture %@, %li, %@", sampleBuffer, (long)bufferType, error);
+            double timeSinceLastCapture = [NSDate.date timeIntervalSince1970] - [self lastCaptureMillis];
+            if (timeSinceLastCapture > 0.1) {
+            if (bufferType == RPSampleBufferTypeVideo) {
+                CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+                CIImage *ciImage = [CIImage imageWithCVPixelBuffer:imageBuffer];
+                CIContext *temporaryContext = [CIContext contextWithOptions:nil];
+                CGImageRef videoImage = [temporaryContext
+                                         createCGImage:ciImage
+                                         fromRect:CGRectMake(0, 0,
+                                                             CVPixelBufferGetWidth(imageBuffer),
+                                                             CVPixelBufferGetHeight(imageBuffer))];
+                
+                UIImage *image = [[UIImage alloc] initWithCGImage:videoImage];
+                CGImageRelease(videoImage);
+                self.latestImage = image;
+                self.lastCaptureMillis = [NSDate date].timeIntervalSince1970;
+            }
+        }
+            
+        } completionHandler:^(NSError* error) {
+            NSLog(@"startCapture: %@", error);
+        }];
+    }
+}
+
+- (void)stopRecording {
+ 
+    
+    if (@available(iOS 11.0, *)) {
+        [self.recorder stopCaptureWithHandler:^(NSError* error){
+            NSLog(@"stoppingCapture: %@", error);
+        }];
+    }
+}
 
 @end
