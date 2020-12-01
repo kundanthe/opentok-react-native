@@ -34,7 +34,7 @@
         _view = view;
         // Recommend sending 5 frames per second: Allows for higher image
         // quality per frame
-        _minFrameDuration = CMTimeMake(1, 10);
+        _minFrameDuration = CMTimeMake(1, 5);
         _queue = dispatch_queue_create("SCREEN_CAPTURE", NULL);
         
         OTVideoFormat *format = [[OTVideoFormat alloc] init];
@@ -104,14 +104,13 @@
  */
 - (void)initCapture {
     __unsafe_unretained OTScreenCapture* _self = self;
-    _timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
+    _timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT, _queue);
     
     dispatch_source_set_timer(_timer, dispatch_walltime(NULL, 0),
-                              100ull * NSEC_PER_MSEC, 100ull * NSEC_PER_MSEC);
+                              200ull * NSEC_PER_MSEC, 50ull * NSEC_PER_MSEC);
     
     dispatch_source_set_event_handler(_timer, ^{
         @autoreleasepool {
-            //__block UIImage* screen = [_self latestImage];
             if ([_self latestImage] != nil) {
                 CGImageRef paddedScreen = [self resizeAndPadImage:self.latestImage];
                 [_self consumeFrame:paddedScreen];
@@ -139,11 +138,11 @@
 {
     _capturing = NO;
     
-    /*dispatch_sync(_queue, ^{
+    dispatch_sync(_queue, ^{
         if (self->_timer) {
             dispatch_source_cancel(self->_timer);
         }
-    });*/
+    });
     [self stopRecording];
 
     return 0;
@@ -293,7 +292,7 @@
                               containerSize:&destContainerSize
                                    drawRect:&destRectForSourceImage];
     
-    UIGraphicsBeginImageContextWithOptions(destContainerSize, NO, 1.0);
+    UIGraphicsBeginImageContextWithOptions(destContainerSize, YES, 0.0);
     CGContextRef context = UIGraphicsGetCurrentContext();
     
     // flip source image to match destination coordinate system
