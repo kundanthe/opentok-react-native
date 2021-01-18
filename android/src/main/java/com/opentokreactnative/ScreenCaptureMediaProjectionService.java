@@ -107,7 +107,7 @@ public class ScreenCaptureMediaProjectionService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getAction().equals(ACTION_START)) {
             mediaProjection = mediaProjectionManager.getMediaProjection(Activity.RESULT_OK,
-                    intent.getParcelableExtra(EXTRA_RESULT_DATA));
+                    (Intent) intent.getParcelableExtra(EXTRA_RESULT_DATA));
             if (mediaProjection != null) {
                 startProjection();
             }
