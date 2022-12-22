@@ -39,13 +39,19 @@ class OTSessionManager: RCTEventEmitter {
     }
     
     @objc func initSession(_ apiKey: String, sessionId: String, sessionOptions: Dictionary<String, Any>) -> Void {
-        let settings = OTSessionSettings()
+        let enableStereoOutput: Bool = Utils.sanitizeBooleanProperty(sessionOptions["enableStereoOutput"] as Any);
+        if enableStereoOutput == true {
+            let customAudioDevice = OTCustomAudioDriver()
+            OTAudioDeviceManager.setAudioDevice(customAudioDevice)
+        }
+        let settings = OTSessionSettings();
         settings.connectionEventsSuppressed = Utils.sanitizeBooleanProperty(sessionOptions["connectionEventsSuppressed"] as Any);
         // Note: IceConfig is an additional property not supported at the moment. We need to add a sanitize function
         // to validate the input from settings.iceConfig.
         // settings.iceConfig = sessionOptions["iceConfig"];
         settings.proxyURL = Utils.sanitizeStringProperty(sessionOptions["proxyUrl"] as Any);
         settings.ipWhitelist = Utils.sanitizeBooleanProperty(sessionOptions["ipWhitelist"] as Any);
+        settings.iceConfig = Utils.sanitizeIceServer(sessionOptions["customServers"] as Any, sessionOptions["transportPolicy"] as Any, sessionOptions["includeServers"] as Any);
         OTRN.sharedState.sessions.updateValue(OTSession(apiKey: apiKey, sessionId: sessionId, delegate: self, settings: settings)!, forKey: sessionId);
     }
     
@@ -74,7 +80,9 @@ class OTSessionManager: RCTEventEmitter {
             }
             publisherProperties.cameraFrameRate = Utils.sanitizeFrameRate(properties["frameRate"] as Any);
             publisherProperties.cameraResolution = Utils.sanitizeCameraResolution(properties["resolution"] as Any);
+            publisherProperties.enableOpusDtx = Utils.sanitizeBooleanProperty(properties["enableDtx"] as Any);
             publisherProperties.name = properties["name"] as? String;
+            publisherProperties.videoCapture?.videoContentHint = Utils.convertVideoContentHint(properties["videoContentHint"] as Any)
             OTRN.sharedState.publishers.updateValue(OTPublisher(delegate: self, settings: publisherProperties)!, forKey: publisherId);
             guard let publisher = OTRN.sharedState.publishers[publisherId] else {
                 let errorInfo = EventUtils.createErrorMessage("There was an error creating the native publisher instance")
@@ -144,6 +152,8 @@ class OTSessionManager: RCTEventEmitter {
             session.subscribe(subscriber, error: &error)
             subscriber.subscribeToAudio = Utils.sanitizeBooleanProperty(properties["subscribeToAudio"] as Any);
             subscriber.subscribeToVideo = Utils.sanitizeBooleanProperty(properties["subscribeToVideo"] as Any);
+            subscriber.preferredFrameRate = Utils.sanitizePreferredFrameRate(properties["preferredFrameRate"] as Any);
+            subscriber.preferredResolution = Utils.sanitizePreferredResolution(properties["preferredResolution"] as Any);
             if let err = error {
                 self.dispatchErrorViaCallback(callback, error: err)
             } else {
@@ -203,9 +213,24 @@ class OTSessionManager: RCTEventEmitter {
         subscriber.subscribeToVideo = subVideo;
     }
     
+    @objc func setPreferredResolution(_ streamId: String, resolution: NSDictionary) -> Void {
+        guard let subscriber = OTRN.sharedState.subscribers[streamId] else { return }
+        subscriber.preferredResolution = Utils.sanitizePreferredResolution(resolution);
+    }
+    
+    @objc func setPreferredFrameRate(_ streamId: String, frameRate: Float) -> Void {
+        guard let subscriber = OTRN.sharedState.subscribers[streamId] else { return }
+        subscriber.preferredFrameRate = Utils.sanitizePreferredFrameRate(frameRate);
+    }
+    
     @objc func changeCameraPosition(_ publisherId: String, cameraPosition: String) -> Void {
         guard let publisher = OTRN.sharedState.publishers[publisherId] else { return }
         publisher.cameraPosition = cameraPosition == "front" ? .front : .back;
+    }
+    
+    @objc func changeVideoContentHint(_ publisherId: String, videoContentHint: String) -> Void {
+        guard let publisher = OTRN.sharedState.publishers[publisherId] else { return }
+        publisher.videoCapture?.videoContentHint = Utils.convertVideoContentHint(videoContentHint);
     }
     
     @objc func setNativeEvents(_ events: Array<String>) -> Void {

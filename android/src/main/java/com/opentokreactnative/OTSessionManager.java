@@ -9,6 +9,8 @@ import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
 import android.view.View;
 
+import androidx.annotation.Nullable;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -29,12 +31,17 @@ import com.opentok.android.Stream;
 import com.opentok.android.OpentokError;
 import com.opentok.android.Subscriber;
 import com.opentok.android.SubscriberKit;
+import com.opentok.android.VideoUtils;
+import com.opentok.android.Session.Builder.TransportPolicy;
+import com.opentok.android.Session.Builder.IncludeServers;
+import com.opentok.android.Session.Builder.IceServer;
+import com.opentok.android.AudioDeviceManager;
 import com.opentokreactnative.utils.EventUtils;
 import com.opentokreactnative.utils.Utils;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
-import java.util.List;
 
 public class OTSessionManager extends ReactContextBaseJavaModule
         implements Session.SessionListener,
@@ -75,10 +82,14 @@ public class OTSessionManager extends ReactContextBaseJavaModule
         final boolean isCamera2Capable = sessionOptions.getBoolean("isCamera2Capable");
         final boolean connectionEventsSuppressed = sessionOptions.getBoolean("connectionEventsSuppressed");
         final boolean ipWhitelist = sessionOptions.getBoolean("ipWhitelist");
-        // Note: IceConfig is an additional property not supported at the moment. 
-        // final ReadableMap iceConfig = sessionOptions.getMap("iceConfig");
-        // final List<Session.Builder.IceServer> iceConfigServerList = (List<Session.Builder.IceServer>) iceConfig.getArray("customServers");
-        // final Session.Builder.IncludeServers iceConfigServerConfig; // = iceConfig.getString("includeServers");
+        final boolean enableStereoOutput = sessionOptions.getBoolean("enableStereoOutput");
+        if (enableStereoOutput) {
+            OTCustomAudioDriver otCustomAudioDriver = new OTCustomAudioDriver(this.getReactApplicationContext());
+            AudioDeviceManager.setAudioDevice(otCustomAudioDriver);
+        }
+        final List<IceServer> iceServersList = Utils.sanitizeIceServer(sessionOptions.getArray("customServers"));
+        final IncludeServers includeServers = Utils.sanitizeIncludeServer(sessionOptions.getString("includeServers"));
+        final TransportPolicy transportPolicy = Utils.sanitizeTransportPolicy(sessionOptions.getString("transportPolicy"));
         final String proxyUrl = sessionOptions.getString("proxyUrl");
         String androidOnTop = sessionOptions.getString("androidOnTop");
         String androidZOrder = sessionOptions.getString("androidZOrder");
@@ -100,8 +111,8 @@ public class OTSessionManager extends ReactContextBaseJavaModule
                     }
                 })
                 .connectionEventsSuppressed(connectionEventsSuppressed)
-                // Note: setCustomIceServers is an additional property not supported at the moment. 
-                // .setCustomIceServers(serverList, config)
+                .setCustomIceServers(iceServersList, includeServers)
+                .setIceRouting(transportPolicy)
                 .setIpWhitelist(ipWhitelist)
                 .setProxyUrl(proxyUrl)
                 .build();
@@ -139,6 +150,7 @@ public class OTSessionManager extends ReactContextBaseJavaModule
         String cameraPosition = properties.getString("cameraPosition");
         Boolean audioFallbackEnabled = properties.getBoolean("audioFallbackEnabled");
         int audioBitrate = properties.getInt("audioBitrate");
+        Boolean enableDtx = properties.getBoolean("enableDtx");
         String frameRate = "FPS_" + properties.getInt("frameRate");
         String resolution = properties.getString("resolution");
         Boolean publishAudio = properties.getBoolean("publishAudio");
@@ -153,6 +165,7 @@ public class OTSessionManager extends ReactContextBaseJavaModule
                     .videoTrack(videoTrack)
                     .name(name)
                     .audioBitrate(audioBitrate)
+                    .enableOpusDtx(enableDtx)
                     .resolution(Publisher.CameraCaptureResolution.valueOf(resolution))
                     .frameRate(Publisher.CameraCaptureFrameRate.valueOf(frameRate))
                     .capturer(capturer)
@@ -169,6 +182,9 @@ public class OTSessionManager extends ReactContextBaseJavaModule
                     .build();
             if (cameraPosition.equals("back")) {
                 mPublisher.cycleCamera();
+            }
+            if (mPublisher.getCapturer() != null) {
+                mPublisher.getCapturer().setVideoContentHint(Utils.convertVideoContentHint(properties.getString("videoContentHint")));
             }
         }
         mPublisher.setPublisherListener(this);
@@ -218,6 +234,18 @@ public class OTSessionManager extends ReactContextBaseJavaModule
         mSubscriber.setStreamListener(this);
         mSubscriber.setSubscribeToAudio(properties.getBoolean("subscribeToAudio"));
         mSubscriber.setSubscribeToVideo(properties.getBoolean("subscribeToVideo"));
+        if (properties.hasKey("preferredFrameRate")) {
+            mSubscriber.setPreferredFrameRate((float) properties.getDouble("preferredFrameRate"));
+        }
+        if (properties.hasKey("preferredResolution")
+                && properties.getMap("preferredResolution").hasKey("width")
+                && properties.getMap("preferredResolution").hasKey("height")) {
+            ReadableMap preferredResolution = properties.getMap("preferredResolution");
+            VideoUtils.Size resolution = new VideoUtils.Size(
+                    preferredResolution.getInt("width"),
+                    preferredResolution.getInt("height"));
+            mSubscriber.setPreferredResolution(resolution);
+        }
         mSubscribers.put(streamId, mSubscriber);
         if (mSession != null) {
             mSession.subscribe(mSubscriber);
@@ -306,12 +334,50 @@ public class OTSessionManager extends ReactContextBaseJavaModule
     }
 
     @ReactMethod
+    public void setPreferredResolution(String streamId, ReadableMap resolution) {
+
+        ConcurrentHashMap<String, Subscriber> mSubscribers = sharedState.getSubscribers();
+        Subscriber mSubscriber = mSubscribers.get(streamId);
+        if (mSubscriber != null ) {
+            if (resolution.hasKey("width")
+                    && resolution.hasKey("height")) {
+                VideoUtils.Size preferredResolution = new VideoUtils.Size(
+                        resolution.getInt("width"),
+                        resolution.getInt("height"));
+                mSubscriber.setPreferredResolution(preferredResolution);
+            } else {
+                mSubscriber.setPreferredResolution(SubscriberKit.NO_PREFERRED_RESOLUTION);
+            }
+        }
+    }
+
+    @ReactMethod
+    public void setPreferredFrameRate(String streamId, Float frameRate) {
+
+        ConcurrentHashMap<String, Subscriber> mSubscribers = sharedState.getSubscribers();
+        Subscriber mSubscriber = mSubscribers.get(streamId);
+        if (mSubscriber != null) {
+            mSubscriber.setPreferredFrameRate(frameRate);
+        }
+    }
+
+    @ReactMethod
     public void changeCameraPosition(String publisherId, String cameraPosition) {
 
         ConcurrentHashMap<String, Publisher> mPublishers = sharedState.getPublishers();
         Publisher mPublisher = mPublishers.get(publisherId);
         if (mPublisher != null) {
             mPublisher.cycleCamera();
+        }
+    }
+
+    @ReactMethod
+    public void changeVideoContentHint(String publisherId, String videoContentHint) {
+
+        ConcurrentHashMap<String, Publisher> mPublishers = sharedState.getPublishers();
+        Publisher mPublisher = mPublishers.get(publisherId);
+        if (mPublisher != null && mPublisher.getCapturer() != null) {
+            mPublisher.getCapturer().setVideoContentHint(Utils.convertVideoContentHint(videoContentHint));
         }
     }
 
@@ -346,6 +412,18 @@ public class OTSessionManager extends ReactContextBaseJavaModule
             componentEvents.remove(events.getString(i));
         }
     }
+
+    // Required for rn built in EventEmitter Calls.
+    @ReactMethod
+    public void addListener(String eventName) {
+
+    }
+
+    @ReactMethod
+    public void removeListeners(Integer count) {
+
+    }
+
 
     @ReactMethod
     public void sendSignal(String sessionId, ReadableMap signal, Callback callback) {

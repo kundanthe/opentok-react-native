@@ -53,9 +53,18 @@ RCT_EXTERN_METHOD(subscribeToAudio:
 RCT_EXTERN_METHOD(subscribeToVideo:
                   (NSString*)streamId
                   subVideo:(BOOL)subVideo)
+RCT_EXTERN_METHOD(setPreferredResolution:
+                  (NSString*)streamId
+                  resolution:(NSDictionary*)resolution)
+RCT_EXTERN_METHOD(setPreferredFrameRate:
+                  (NSString*)streamId
+                  frameRate:(nonnull NSNumber*)frameRate)
 RCT_EXTERN_METHOD(changeCameraPosition:
                   (NSString*)publisherId
                   cameraPosition:(NSString*)cameraPosition)
+RCT_EXTERN_METHOD(changeVideoContentHint:
+                  (NSString*)publisherId
+                  videoContentHint:(NSString*)videoContentHint)
 RCT_EXTERN_METHOD(setNativeEvents:
                   (NSArray*)events)
 RCT_EXTERN_METHOD(removeNativeEvents:

@@ -15,6 +15,10 @@
 
   * **subscribeToVideo** (Boolean) — Whether to subscribe video.
 
+  * **preferredResolution** (String) — Sets the preferred resolution of the subscriber's video. The format of the string is "widthxheight", where the width and height are represented in pixels. Valid values are "1280x720", "640x480", and "352x288".
+
+  * **preferredFrameRate** (Number) — Set this to the desired frame rate (in frames per second). Set this to null to remove the preferred frame rate, and the client will use the highest frame rate available. Valid values are 30, 15, 7, and 1.
+
 
 The `OTSubscriber` component will subscribe to a specified stream from a specified session upon mounting. The `OTSubscriber` component will stop subscribing and unsubscribing when it's unmounting.
 
@@ -73,6 +77,14 @@ class App extends Component {
     this.subscriberEventHandlers = {
       error: (error) => {
         console.log(`There was an error with the subscriber: ${error}`);
+      },
+      audioNetworkStats: event => {
+        console.log('audioNetworkStats', event);
+        // { timeStamp: 1643203644833, audioPacketsLost: 0, audioPacketsReceived: 64, audioBytesReceived: 5574 }
+      },
+      videoNetworkStats: event => {
+        console.log('videoNetworkStats', event);
+        // videoBytesReceived: 706635, videoPacketsLost: 0, timeStamp: 1643203644724, videoPacketsReceived: 656 }
       },
     };
   }

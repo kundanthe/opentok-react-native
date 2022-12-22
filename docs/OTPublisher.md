@@ -23,6 +23,8 @@
   * **audioTrack** (Boolean) — If this property is set to false, the audio subsystem will not be initialized for the publisher, and setting the publishAudio property will have no effect. If your application does not require the use of audio, it is recommended to set this property rather than use the publishAudio property, which only temporarily disables the audio track.
 
   * **cameraPosition** (String) - The preferred camera position. When setting this property, if the change is possible, the publisher will use the camera with the specified position. Valid Inputs: 'front' or 'back'
+
+  * **enableDtx** (Boolean) - Whether to enable [Opus DTX](https://datatracker.ietf.org/doc/html/rfc7587#section-3.1.3). The default value is false. Setting this to true can reduce bandwidth usage in streams that have long periods of silence.
   
   * **frameRate** (Number) - The desired frame rate, in frames per second, of the video. Valid values are 30, 15, 7, and 1. The published stream will use the closest value supported on the publishing client. The frame rate can differ slightly from the value you set, depending on the device of the client. And the video will only use the desired frame rate if the client configuration supports it. 
 
@@ -33,6 +35,8 @@
   * **publishVideo** (Boolean) — Whether to publish video.
 
   * **resolution** (String) - The desired resolution of the video. The format of the string is "widthxheight", where the width and height are represented in pixels. Valid values are "1280x720", "640x480", and "352x288". The published video will only use the desired resolution if the client configuration supports it. Some devices and clients do not support each of these resolution settings.
+  
+  * **videoContentHint** (String) — Sets the content hint of the video track of the publisher's stream. You can set this to one of the following values: "", "motion", "details" or "text". For additional information, check the Video API [Documentation](https://tokbox.com/developer/sdks/js/reference/OT.html#initPublisher).
 
   * **videoTrack** (Boolean) — If this property is set to false, the video subsystem will not be initialized for the publisher, and setting the publishVideo property will have no effect. If your application does not require the use of video, it is recommended to set this property rather than use the publishVideo property, which only temporarily disables the video track.
 
