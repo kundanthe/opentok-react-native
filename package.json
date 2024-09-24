@@ -29,7 +29,7 @@
     "axios": "^0.21.1",
     "deprecated-react-native-prop-types": "^2.3.0",
     "flow-bin": "^0.180.0",
-    "prop-types": "^15.7.2",
+    "prop-types": "^15.8.1",
     "underscore": "^1.13.0",
     "uuid": "^3.4.0"
   },
