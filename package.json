@@ -30,7 +30,7 @@
     "deprecated-react-native-prop-types": "^2.3.0",
     "flow-bin": "^0.180.0",
     "prop-types": "^15.7.2",
-    "underscore": "^1.13.0",
+    "underscore": "^1.13.7",
     "uuid": "^3.4.0"
   },
   "devDependencies": {
